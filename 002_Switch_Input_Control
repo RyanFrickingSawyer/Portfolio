@@ -1,115 +1,94 @@
-#include <stdio.h>
-#include <stdbool.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include "driver/gpio.h"
-#include "esp_timer.h"
-
-#define RED_LED_PIN        GPIO_NUM_2
-#define BLUE_LED_PIN       GPIO_NUM_19
-#define SWITCH_PIN         GPIO_NUM_18
+#define RED_LED_PIN    2
+#define BLUE_LED_PIN   19
+#define SWITCH_PIN     18
 
 #define POLL_DELAY_MS      10
-#define DEBOUNCE_DELAY_MS  20
+#define DEBOUNCE_DELAY_MS  100
 
-static bool blueLedState = false;
 
-void blinkTask(void *pvParameters)
-{
-    while (1)
-    {
-        gpio_set_level(RED_LED_PIN, 1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+bool blueLedState = false;
 
-        gpio_set_level(RED_LED_PIN, 0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+// Red LED timing
+unsigned long lastBlinkTime = 0;
+bool redLedState = false;
+
+// Switch debounce variables
+bool lastReading = LOW;
+bool stableState = LOW;
+unsigned long lastDebounceTime = 0;
+
+
+void setup() {
+
+  pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(BLUE_LED_PIN, OUTPUT);
+
+  // External pull-down resistor
+  pinMode(SWITCH_PIN, INPUT);
+
+  digitalWrite(RED_LED_PIN, LOW);
+  digitalWrite(BLUE_LED_PIN, LOW);
 }
 
-void switchTask(void *pvParameters)
-{
-    bool lastReading = false;
-    bool stableState = false;
 
-    int64_t lastDebounceTime = 0;
+void loop() {
 
-    while (1)
-    {
-        bool reading = gpio_get_level(SWITCH_PIN);
+  unsigned long currentTime = millis();
 
-        // Detect a change in the raw input
-        if (reading != lastReading)
-        {
-            lastDebounceTime = esp_timer_get_time() / 1000; // milliseconds
-        }
 
-        // If the input has been stable long enough
-        if (((esp_timer_get_time() / 1000) - lastDebounceTime) >= DEBOUNCE_DELAY_MS)
-        {
-            // Has the stable state changed?
-            if (reading != stableState)
-            {
-                stableState = reading;
+  // =================================
+  // RED LED BLINK TASK
+  // =================================
 
-                // Toggle the blue LED on every switch movement
-                blueLedState = !blueLedState;
-                gpio_set_level(BLUE_LED_PIN, blueLedState);
-            }
-        }
+  if (currentTime - lastBlinkTime >= 1000) {
 
-        lastReading = reading;
+    lastBlinkTime = currentTime;
 
-        // Give time back to the scheduler
-        vTaskDelay(pdMS_TO_TICKS(POLL_DELAY_MS));
+    redLedState = !redLedState;
+
+    digitalWrite(RED_LED_PIN, redLedState);
+  }
+
+
+
+  // =================================
+  // SWITCH TASK
+  // =================================
+
+  bool reading = digitalRead(SWITCH_PIN);
+
+
+  // Detect raw input change
+  if (reading != lastReading) {
+
+    lastDebounceTime = currentTime;
+
+  }
+
+
+  // Check if input stayed stable
+  if ((currentTime - lastDebounceTime) >= DEBOUNCE_DELAY_MS) {
+
+
+    // Stable switch state changed
+    if (reading != stableState) {
+
+      stableState = reading;
+
+
+      // Toggle blue LED
+      blueLedState = !blueLedState;
+
+      digitalWrite(BLUE_LED_PIN, blueLedState);
+
     }
-}
+  }
 
-void app_main(void)
-{
-    // Configure LED pins as outputs
-    gpio_config_t output_config = {
-        .pin_bit_mask = (1ULL << RED_LED_PIN) | (1ULL << BLUE_LED_PIN),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
 
-    gpio_config(&output_config);
+  lastReading = reading;
 
-    // Configure switch pin as input
-    gpio_config_t input_config = {
-        .pin_bit_mask = (1ULL << SWITCH_PIN),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
 
-    gpio_config(&input_config);
+  // Small delay for polling
+  delay(POLL_DELAY_MS);
 
-    // Initialize LEDs to OFF
-    gpio_set_level(RED_LED_PIN, 0);
-    gpio_set_level(BLUE_LED_PIN, 0);
-
-    // Create tasks
-    xTaskCreate(
-        blinkTask,
-        "Blink Task",
-        2048,
-        NULL,
-        1,
-        NULL
-    );
-
-    xTaskCreate(
-        switchTask,
-        "Switch Task",
-        2048,
-        NULL,
-        1,
-        NULL
-    );
 }
