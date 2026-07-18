@@ -1,0 +1,101 @@
+#define DATA_PIN 23
+#define CLOCK_PIN 18
+#define LATCH_PIN 5
+
+void display(byte value) {
+  digitalWrite(LATCH_PIN, LOW);
+  shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, value);
+  digitalWrite(LATCH_PIN, HIGH);
+}
+
+void setup() {
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
+  pinMode(LATCH_PIN, OUTPUT);
+}
+
+void loop() {
+
+  // =========================
+  // Pattern 1 - Walking Light
+  // =========================
+  for (byte i = 0; i < 8; i++) {
+    display(1 << i);
+    delay(100);
+  }
+  delay(500);
+
+  // ================================
+  // Pattern 2 - Walking Light Reverse
+  // ================================
+  for (byte i = 0; i < 8; i++) {
+    display(128 >> i);
+    delay(100);
+  }
+  delay(500);
+
+  // ===================
+  // Pattern 3 - Fill Up
+  // ===================
+  for (byte i = 0; i < 8; i++) {
+    display((1 << (i + 1)) - 1);
+    delay(100);
+  }
+  delay(500);
+
+  // =====================
+  // Pattern 4 - Empty Down
+  // =====================
+  for (byte i = 7; i > 0; i--) {
+    display((1 << i) - 1);
+    delay(100);
+  }
+  display(0);
+  delay(500);
+
+  // ==================
+  // Pattern 5 - Blink
+  // ==================
+  for (byte i = 0; i < 6; i++) {
+    display(255);
+    delay(200);
+    display(0);
+    delay(200);
+  }
+  delay(500);
+
+  // ========================
+  // Pattern 6 - Alternating
+  // ========================
+  for (byte i = 0; i < 8; i++) {
+    display(0b10101010);
+    delay(200);
+    display(0b01010101);
+    delay(200);
+  }
+  delay(500);
+
+  // =======================
+  // Pattern 7 - Binary Count
+  // =======================
+  for (int i = 0; i < 256; i++) {
+    display(i);
+    delay(25);
+  }
+  delay(500);
+
+  // =======================
+  // Pattern 8 - Knight Rider
+  // =======================
+  for (byte i = 0; i < 8; i++) {
+    display(1 << i);
+    delay(75);
+  }
+
+  for (int i = 6; i >= 1; i--) {
+    display(1 << i);
+    delay(75);
+  }
+
+  delay(1000);
+}
